@@ -3,6 +3,7 @@ from WarehouseEnv import WarehouseEnv, manhattan_distance
 import random
 
 BATTERY_WEIGHT = 100
+CREDIT_WEIGHT = 1000
 
 def smart_heuristic(env: WarehouseEnv, robot_id: int):
     # Get robot by id and validate it exists
@@ -13,13 +14,17 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     # Calculate the target point for the robot and the closest package
     package = closest_package(env, robot_id)
     target = package.destination if robot.package else package.position
+    if robot.package:
+        cr_weight = 1000
+    else:
+        cr_weight = 100
     
     # If i have a package and the battery is not enough to deliver it, return to the charger
     if manhattan_distance(target, robot.position) >= robot.battery:
-        return robot.battery * BATTERY_WEIGHT + robot.credit - manhattan_distance(closest_charger(env, robot_id).position , robot.position)
+        return robot.battery * BATTERY_WEIGHT + (robot.credit + 1) * cr_weight - manhattan_distance(closest_charger(env, robot_id).position , robot.position)
     # Otherwise, return the heuristic value
     else:
-        return package_reward(package) - manhattan_distance(robot.position, target.position) + robot.credit
+        return package_reward(package) - manhattan_distance(robot.position, target) + (robot.credit+1) * cr_weight
     
     
 class AgentGreedyImproved(AgentGreedy):
@@ -81,15 +86,15 @@ def closest_package(env: WarehouseEnv, robot_id: int):
     # Calculate the distance to each package and return the closest one
     package0_dist = manhattan_distance(env.packages[0].position, robot.position)
     package1_dist = manhattan_distance(env.packages[1].position, robot.position)
-    return env.packages[0] if package0_dist > package1_dist else env.packages[1]
+    return env.packages[1] if package0_dist > package1_dist else env.packages[0]
 
 def closest_charger(env: WarehouseEnv, robot_id: int):
     robot = env.get_robot(robot_id)
     
     # Calculate the distance to each charger and return the closest one
-    charger0_dist = manhattan_distance(env.chargers[0], robot.position)
-    charger1_dist = manhattan_distance(env.chargers[1], robot.position)
-    return env.chargers[0] if charger0_dist > charger1_dist else env.chargers[1]
+    charger0_dist = manhattan_distance(env.charge_stations[0].position, robot.position)
+    charger1_dist = manhattan_distance(env.charge_stations[1].position, robot.position)
+    return env.charge_stations[1] if charger0_dist > charger1_dist else env.charge_stations[0]
 
 def package_reward(package):
     # Calculate the reward for delivering the package
