@@ -2,7 +2,7 @@ from Agent import Agent, AgentGreedy
 from WarehouseEnv import WarehouseEnv, manhattan_distance
 import random
 
-BATTERY_WEIGHT = 100
+BATTERY_WEIGHT = 1000
 CREDIT_WEIGHT = 1000
 
 def smart_heuristic(env: WarehouseEnv, robot_id: int):
@@ -14,17 +14,14 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     # Calculate the target point for the robot and the closest package
     package = closest_package(env, robot_id)
     target = package.destination if robot.package else package.position
-    if robot.package:
-        cr_weight = 1000
-    else:
-        cr_weight = 100
+    credit_weight, additional_cost = (CREDIT_WEIGHT, 0) if robot.package else (CREDIT_WEIGHT/10, manhattan_distance(package.position, package.destination))
     
     # If i have a package and the battery is not enough to deliver it, return to the charger
-    if manhattan_distance(target, robot.position) >= robot.battery:
-        return robot.battery * BATTERY_WEIGHT + (robot.credit + 1) * cr_weight - manhattan_distance(closest_charger(env, robot_id).position , robot.position)
+    if manhattan_distance(target, robot.position) + manhattan_distance(closest_charger(env, robot_id).position , target)  >= robot.battery and robot.credit != 0:
+        return robot.battery * BATTERY_WEIGHT + robot.credit * credit_weight - manhattan_distance(closest_charger(env, robot_id).position , robot.position)
     # Otherwise, return the heuristic value
     else:
-        return package_reward(package) - manhattan_distance(robot.position, target) + (robot.credit+1) * cr_weight
+        return package_reward(package) - manhattan_distance(robot.position, target) - additional_cost + (robot.credit * credit_weight) + (robot.battery * BATTERY_WEIGHT)
     
     
 class AgentGreedyImproved(AgentGreedy):
