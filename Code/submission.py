@@ -1,12 +1,12 @@
-import time
-
 from Agent import Agent, AgentGreedy
 from WarehouseEnv import WarehouseEnv, manhattan_distance
 import random
+import time
 
 BATTERY_WEIGHT = 1000
 CREDIT_WEIGHT = 1000
-TIME_LIMITATION = 0.1
+TIME_LIMITATION = 0.2
+
 
 def smart_heuristic(env: WarehouseEnv, robot_id: int):
     # Get robot by id and validate it exists
@@ -71,9 +71,42 @@ class AgentMinimax(Agent):
 
 class AgentAlphaBeta(Agent):
     # TODO: section c : 1
-    def run_step(self, env: WarehouseEnv, agent_id, time_limit):
-        raise NotImplementedError()
+    def ABminimax(self, env: WarehouseEnv, robot_id, time_finish, depth, my_turn: bool, alpha: float, beta: float):
+        # Case time finish or final state or depth limit
+        if time.time() >= time_finish or depth == 0 or \
+                (env.get_robot(robot_id).battery == 0 and env.get_robot(abs(robot_id - 1)).battery == 0):
+            return smart_heuristic(env, robot_id), None
 
+        ops, children = self.successors(env, robot_id)
+        chosen_value = float("-inf") if my_turn else float("inf")
+        chosen_op = None
+
+        # Choosing the most fitted value, according to ABminimax astategy
+        for op, child in zip(ops, children):
+            value, _ = self.ABminimax(child, robot_id, time_finish, depth - 1, not my_turn, alpha, beta)
+            if my_turn:
+                chosen_value = value if value > chosen_value else chosen_value
+                alpha = chosen_value if chosen_value > alpha else alpha
+                chosen_op = op
+                if chosen_value >= beta:
+                    return float("inf"), op
+            else:
+                chosen_value = value if value < chosen_value else chosen_value
+                beta = chosen_value if chosen_value < beta else beta
+                chosen_op = op
+                if chosen_value <= alpha:
+                    return float("-inf"), op
+            if time.time() >= time_finish:
+                break
+        return chosen_value, chosen_op
+
+    def run_step(self, env: WarehouseEnv, agent_id, time_limit):
+        finish_time = time.time() + TIME_LIMITATION
+        depth = 1
+        while time.time() < finish_time:
+            _, op = self.ABminimax(env, agent_id, finish_time, depth, True, float("-inf"), float("inf"))
+            depth += 1
+        return op
 
 class AgentExpectimax(Agent):
     # TODO: section d : 1
