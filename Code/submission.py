@@ -34,11 +34,12 @@ class AgentGreedyImproved(AgentGreedy):
 
 
 class AgentMinimax(Agent):
-    # TODO: section b : 1
+    
     def gap_credit_points(self, env: WarehouseEnv, robot_id):
         my_robot = env.get_robot(robot_id)
         foe_robot = env.get_robot(abs(robot_id-1))
         return my_robot.credit - foe_robot.credit
+    
     def minimax(self, env: WarehouseEnv, robot_id, time_finish, depth, my_turn: bool):
         # Case time finish or final state or depth limit
         if time.time() >= time_finish or depth == 0 or\
@@ -116,37 +117,34 @@ class AgentExpectimax(Agent):
 
     def run_step(self, env, agent_index, time_limit):
         # Run the Expectimax algorithm to get the best move
-        operators = env.get_legal_operators(agent_index)
-        children = self.successors(env, agent_index)
-        
-        for child in children:
-            # calculate the value of each child and choose the one with the maximum value, return the operator            
-        return (self.expectimax(env, agent_index, agent_index, self.depth, time_limit))
+        finish_time = time.time() + time_limit
+        depth = 1
+        while time.time() < finish_time:
+            _, op = self.expectimax(env, agent_index, finish_time, depth, True)
+            depth += 1
+        return op
 
-    def expectimax(self, env, agent_index, turn, depth, time_limit):
-        # Stop conditions for the recursion
-        if depth == 0 or env.done() or time_limit < 1:                          # HOW TO USE time_limit?
-            return (self.evaluate(env, agent_index), None)
-        
-        children = self.successors(env, agent_index)
-                
-        # If its my turn calculate the maximum value of the children
-        if turn == agent_index:
-            current_max = float('-inf')
-            for child in children:
-                current_max = max(current_max, self.expectimax(child, agent_index, 1-turn, depth - 1, time_limit))
-            
-            return current_max
-        
-        # If its the opponent's turn calculate the average value of the children (Uniform distribution) 
-        else:
-            value = sum([self.expectimax(child, agent_index, 1-turn, depth - 1, time_limit) for child in children])
-            return value / len(children)
-    
-    # Evaluation function on the current state
-    def evaluate(self, env, agent_index):
-        return env.get_balances()[agent_index] - env.get_balances()[1-agent_index]
+    def expectimax(self, env, robot_id, time_finish, depth, my_turn):
+        # Case time finish or final state or depth limit
+        if time.time() >= time_finish or depth == 0 or\
+                (env.get_robot(robot_id).battery == 0 and env.get_robot(abs(robot_id-1)).battery == 0):
+            return smart_heuristic(env, robot_id), None
 
+        ops, children = self.successors(env, robot_id)
+        chosen_value = float("-inf") if my_turn else float("inf")
+        chosen_op = None
+
+        # Choosing the most fitted value, according to expectimax astategy
+        for op, child in zip(ops, children):
+            value, _ = self.expectimax(child, robot_id, time_finish, depth-1, not my_turn)
+            expect_value = sum([self.expectimax(child, robot_id, time_finish, depth-1, not my_turn)[0] for child in children])
+            if my_turn and value > chosen_value:
+                chosen_value, chosen_op = value, op
+            elif not my_turn and expect_value < chosen_value:
+                chosen_value, chosen_op = expect_value, op
+            if time.time() >= time_finish:
+                break
+        return chosen_value, chosen_op
 
 # here you can check specific paths to get to know the environment
 class AgentHardCoded(Agent):
