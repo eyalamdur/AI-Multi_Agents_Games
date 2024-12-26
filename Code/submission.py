@@ -1,5 +1,6 @@
 from Agent import Agent, AgentGreedy
 from WarehouseEnv import WarehouseEnv, manhattan_distance
+from enum import Enum
 import random
 
 BATTERY_WEIGHT = 1000
@@ -42,9 +43,42 @@ class AgentAlphaBeta(Agent):
 
 
 class AgentExpectimax(Agent):
-    # TODO: section d : 1
-    def run_step(self, env: WarehouseEnv, agent_id, time_limit):
-        raise NotImplementedError()
+    def __init__(self, depth=5):
+        self.depth = depth
+        TURNS = {0: "My turn", 1: "Opponent's turn"}
+
+    def run_step(self, env, agent_index, time_limit):
+        # Run the Expectimax algorithm to get the best move
+        operators = env.get_legal_operators(agent_index)
+        children = self.successors(env, agent_index)
+        
+        for child in children:
+            # calculate the value of each child and choose the one with the maximum value, return the operator            
+        return (self.expectimax(env, agent_index, agent_index, self.depth, time_limit))
+
+    def expectimax(self, env, agent_index, turn, depth, time_limit):
+        # Stop conditions for the recursion
+        if depth == 0 or env.done() or time_limit < 1:                          # HOW TO USE time_limit?
+            return (self.evaluate(env, agent_index), None)
+        
+        children = self.successors(env, agent_index)
+                
+        # If its my turn calculate the maximum value of the children
+        if turn == agent_index:
+            current_max = float('-inf')
+            for child in children:
+                current_max = max(current_max, self.expectimax(child, agent_index, 1-turn, depth - 1, time_limit))
+            
+            return current_max
+        
+        # If its the opponent's turn calculate the average value of the children (Uniform distribution) 
+        else:
+            value = sum([self.expectimax(child, agent_index, 1-turn, depth - 1, time_limit) for child in children])
+            return value / len(children)
+    
+    # Evaluation function on the current state
+    def evaluate(self, env, agent_index):
+        return env.get_balances()[agent_index] - env.get_balances()[1-agent_index]
 
 
 # here you can check specific paths to get to know the environment
@@ -69,10 +103,11 @@ class AgentHardCoded(Agent):
         operators, _ = self.successors(env, robot_id)
 
         return random.choice(operators)
-    
-    
-    
-    # ----------------- Helper Functions ----------------- #
+
+
+# ------------------------ smart_heuristic Helper Functions ------------------------ #
+
+#  Helper function to get the closest package to the robot
 def closest_package(env: WarehouseEnv, robot_id: int):
     robot = env.get_robot(robot_id)
     
@@ -85,6 +120,7 @@ def closest_package(env: WarehouseEnv, robot_id: int):
     package1_dist = manhattan_distance(env.packages[1].position, robot.position)
     return env.packages[1] if package0_dist > package1_dist else env.packages[0]
 
+# Helper function to get the closest charger to the robot
 def closest_charger(env: WarehouseEnv, robot_id: int):
     robot = env.get_robot(robot_id)
     
@@ -93,7 +129,6 @@ def closest_charger(env: WarehouseEnv, robot_id: int):
     charger1_dist = manhattan_distance(env.charge_stations[1].position, robot.position)
     return env.charge_stations[1] if charger0_dist > charger1_dist else env.charge_stations[0]
 
+# Helper function to calculate the reward for delivering a package
 def package_reward(package):
-    # Calculate the reward for delivering the package
     return 2 * manhattan_distance(package.position, package.destination)
-    
