@@ -6,7 +6,6 @@ import time
 
 BATTERY_WEIGHT = 1000
 CREDIT_WEIGHT = 1000
-TIME_LIMITATION = 0.2
 
 
 def smart_heuristic(env: WarehouseEnv, robot_id: int):
@@ -64,7 +63,7 @@ class AgentMinimax(Agent):
         return chosen_value, chosen_op
 
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
-        finish_time = time.time() + TIME_LIMITATION
+        finish_time = time.time() + time_limit
         depth = 1
         while time.time() < finish_time:
             _, op = self.minimax(env, agent_id, finish_time, depth, True)
@@ -103,7 +102,7 @@ class AgentAlphaBeta(Agent):
         return chosen_value, chosen_op
 
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
-        finish_time = time.time() + TIME_LIMITATION
+        finish_time = time.time() + time_limit
         depth = 1
         while time.time() < finish_time:
             _, op = self.ABminimax(env, agent_id, finish_time, depth, True, float("-inf"), float("inf"))
@@ -117,7 +116,7 @@ class AgentExpectimax(Agent):
 
     def run_step(self, env, agent_index, time_limit):
         # Run the Expectimax algorithm to get the best move
-        finish_time = time.time() + time_limit
+        finish_time = time.time() + time_limit * 0.8
         depth = 1
         while time.time() < finish_time:
             _, op = self.expectimax(env, agent_index, finish_time, depth, True)
@@ -125,27 +124,46 @@ class AgentExpectimax(Agent):
         return op
 
     def expectimax(self, env, robot_id, time_finish, depth, my_turn):
-        # Case time finish or final state or depth limit
-        if time.time() >= time_finish or depth == 0 or\
-                (env.get_robot(robot_id).battery == 0 and env.get_robot(abs(robot_id-1)).battery == 0):
+        # Check if the search should be finished and return the heuristic value
+        if self.finish_search(env, time_finish, depth):
             return smart_heuristic(env, robot_id), None
 
+        # Get the children of the current state and their operators
         ops, children = self.successors(env, robot_id)
-        chosen_value = float("-inf") if my_turn else float("inf")
-        chosen_op = None
+        chosen_value, chosen_op= float("-inf") if my_turn else float("inf"), None
 
-        # Choosing the most fitted value, according to expectimax astategy
-        for op, child in zip(ops, children):
-            value, _ = self.expectimax(child, robot_id, time_finish, depth-1, not my_turn)
-            expect_value = sum([self.expectimax(child, robot_id, time_finish, depth-1, not my_turn)[0] for child in children])
-            if my_turn and value > chosen_value:
-                chosen_value, chosen_op = value, op
-            elif not my_turn and expect_value < chosen_value:
-                chosen_value, chosen_op = expect_value, op
-            if time.time() >= time_finish:
-                break
+        # Choosing the most fitted value, according to expectimax Astrategy
+        if my_turn:
+            chosen_value, chosen_op = self.max_value(children, ops, robot_id, time_finish, depth, my_turn, chosen_value)
+        else:
+            chosen_value = self.expect_value(children, robot_id, time_finish, depth, my_turn)
+
         return chosen_value, chosen_op
 
+    # Check if the search should be finished time limit, depth limit or both robots are out of battery
+    def finish_search(self, env, time_finish, depth):
+        FIRST_ROBOT_ID, SECOND_ROBOT_ID = 0, 1
+        if time.time() >= time_finish or depth == 0 or \
+            (env.get_robot(FIRST_ROBOT_ID).battery == 0 and env.get_robot(abs(SECOND_ROBOT_ID)).battery == 0):
+            return True
+        return False
+    
+    # Calculate and returns expect of the value of the children
+    def expect_value(self, children, robot_id, time_finish, depth, my_turn):
+        values_sum = sum([self.expectimax(child, robot_id, time_finish, depth-1, not my_turn)[0] for child in children])
+        return values_sum / len(children)
+    
+    # Calculate and returns the max value of the children
+    def max_value(self, children, ops, robot_id, time_finish, depth, my_turn, current_value):
+        for op, child in zip(ops, children):
+            value, _ = self.expectimax(child, robot_id, time_finish, depth-1, not my_turn)
+            if value > current_value:
+                current_value, chosen_op = value, op
+            if time.time() >= time_finish:
+                break
+        return current_value, chosen_op
+    
+# ------------------------ smart_heuristic Helper Functions ------------------------ #
 # here you can check specific paths to get to know the environment
 class AgentHardCoded(Agent):
     def __init__(self):
