@@ -126,7 +126,7 @@ class AgentExpectimax(Agent):
     def expectimax(self, env, robot_id, time_finish, depth, my_turn):
         # Check if the search should be finished and return the heuristic value
         if self.finish_search(env, time_finish, depth):
-            return smart_heuristic(env, robot_id), None
+            return smart_heuristic(env, robot_id), None if my_turn else -smart_heuristic(env, robot_id)
 
         # Get the children of the current state and their operators
         ops, children = self.successors(env, robot_id)
@@ -150,13 +150,13 @@ class AgentExpectimax(Agent):
     
     # Calculate and returns expect of the value of the children
     def expect_value(self, children, robot_id, time_finish, depth, my_turn):
-        values_sum = sum([self.expectimax(child, robot_id, time_finish, depth-1, not my_turn)[0] for child in children])
+        values_sum = sum([self.expectimax(child, 1 - robot_id, time_finish, depth-1, not my_turn)[0] for child in children])
         return values_sum / len(children)
     
     # Calculate and returns the max value of the children
     def max_value(self, children, ops, robot_id, time_finish, depth, my_turn, current_value):
         for op, child in zip(ops, children):
-            value, _ = self.expectimax(child, robot_id, time_finish, depth-1, not my_turn)
+            value, _ = self.expectimax(child, 1 - robot_id, time_finish, depth-1, not my_turn)
             if value > current_value:
                 current_value, chosen_op = value, op
             if time.time() >= time_finish:
