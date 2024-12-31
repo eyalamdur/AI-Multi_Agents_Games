@@ -110,9 +110,8 @@ class AgentAlphaBeta(Agent):
         return op
 
 class AgentExpectimax(Agent):
-    def __init__(self, depth=5):
-        self.depth = depth
-        TURNS = {0: "My turn", 1: "Opponent's turn"}
+    def __init__(self):
+        pass
 
     def run_step(self, env, agent_index, time_limit):
         # Run the Expectimax algorithm to get the best move
@@ -126,7 +125,7 @@ class AgentExpectimax(Agent):
     def expectimax(self, env, robot_id, time_finish, depth, my_turn):
         # Check if the search should be finished and return the heuristic value
         if self.finish_search(env, time_finish, depth):
-            return smart_heuristic(env, robot_id), None if my_turn else -smart_heuristic(env, robot_id)
+            return (smart_heuristic(env, robot_id) if my_turn else (-smart_heuristic(env, robot_id))), None
 
         # Get the children of the current state and their operators
         ops, children = self.successors(env, robot_id)
