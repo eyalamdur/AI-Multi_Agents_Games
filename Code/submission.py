@@ -6,7 +6,7 @@ import time
 
 BATTERY_WEIGHT = 1000
 CREDIT_WEIGHT = 1000
-
+TIME_LIMITATION = 0.8
 
 def smart_heuristic(env: WarehouseEnv, robot_id: int):
     # Get robot by id and validate it exists
@@ -115,7 +115,7 @@ class AgentExpectimax(Agent):
 
     def run_step(self, env, agent_index, time_limit):
         # Run the Expectimax algorithm to get the best move
-        finish_time = time.time() + time_limit * 0.8
+        finish_time = time.time() + time_limit * TIME_LIMITATION
         depth = 1
         while time.time() < finish_time:
             _, op = self.expectimax(env, agent_index, finish_time, depth, True)
@@ -125,7 +125,7 @@ class AgentExpectimax(Agent):
     def expectimax(self, env, robot_id, time_finish, depth, my_turn):
         # Check if the search should be finished and return the heuristic value
         if self.finish_search(env, time_finish, depth):
-            return (smart_heuristic(env, robot_id) if my_turn else (-smart_heuristic(env, robot_id))), None
+            return (smart_heuristic(env, robot_id) if my_turn else (-smart_heuristic(env, 1-robot_id))), None
 
         # Get the children of the current state and their operators
         ops, children = self.successors(env, robot_id)
