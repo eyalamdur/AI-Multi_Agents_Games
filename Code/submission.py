@@ -117,7 +117,7 @@ class AgentExpectimax(Agent):
         # Run the Expectimax algorithm to get the best move
         finish_time = time.time() + time_limit * TIME_LIMITATION
         depth = 1
-        while time.time() < finish_time:
+        while time.time() < finish_time and depth < 3:
             _, op = self.expectimax(env, agent_index, finish_time, depth, True)
             depth += 1
         return op
@@ -125,10 +125,11 @@ class AgentExpectimax(Agent):
     def expectimax(self, env, robot_id, time_finish, depth, my_turn):
         # Check if the search should be finished and return the heuristic value
         if self.finish_search(env, time_finish, depth):
-            return (smart_heuristic(env, robot_id) if my_turn else (-smart_heuristic(env, 1-robot_id))), None
+            return (smart_heuristic(env, robot_id) - smart_heuristic(env, 1-robot_id)), None
 
         # Get the children of the current state and their operators
-        ops, children = self.successors(env, robot_id)
+        current_robot = robot_id if my_turn else 1-robot_id
+        ops, children = self.successors(env, current_robot)
         chosen_value, chosen_op= float("-inf") if my_turn else float("inf"), None
 
         # Choosing the most fitted value, according to expectimax Astrategy
@@ -149,13 +150,13 @@ class AgentExpectimax(Agent):
     
     # Calculate and returns expect of the value of the children
     def expect_value(self, children, robot_id, time_finish, depth, my_turn):
-        values_sum = sum([self.expectimax(child, 1 - robot_id, time_finish, depth-1, not my_turn)[0] for child in children])
+        values_sum = sum([self.expectimax(child, robot_id, time_finish, depth-1, not my_turn)[0] for child in children])
         return values_sum / len(children)
     
     # Calculate and returns the max value of the children
     def max_value(self, children, ops, robot_id, time_finish, depth, my_turn, current_value):
         for op, child in zip(ops, children):
-            value, _ = self.expectimax(child, 1 - robot_id, time_finish, depth-1, not my_turn)
+            value, _ = self.expectimax(child, robot_id, time_finish, depth-1, not my_turn)
             if value > current_value:
                 current_value, chosen_op = value, op
             if time.time() >= time_finish:
