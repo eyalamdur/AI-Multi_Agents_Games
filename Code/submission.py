@@ -5,7 +5,7 @@ import time
 
 BATTERY_WEIGHT = 1000
 CREDIT_WEIGHT = 1000
-TIME_LIMITATION = 0.2
+TIME_LIMITATION = 0.8
 
 
 def smart_heuristic(env: WarehouseEnv, robot_id: int):
@@ -62,7 +62,7 @@ class AgentMinimax(Agent):
         return chosen_value, chosen_op
 
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
-        finish_time = time.time() + TIME_LIMITATION
+        finish_time = time.time() + TIME_LIMITATION*time_limit
         depth = 1
         while time.time() < finish_time:
             _, op = self.minimax(env, agent_id, finish_time, depth, True)
@@ -101,7 +101,7 @@ class AgentAlphaBeta(Agent):
         return chosen_value, chosen_op
 
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
-        finish_time = time.time() + TIME_LIMITATION
+        finish_time = time.time() + TIME_LIMITATION * time_limit
         depth = 1
         while time.time() < finish_time:
             _, op = self.ABminimax(env, agent_id, finish_time, depth, True, float("-inf"), float("inf"))
