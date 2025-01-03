@@ -71,7 +71,7 @@ class AgentMinimax(Agent):
         return op
 
 class AgentAlphaBeta(Agent):
-    # TODO: section c : 1
+    
     def ABminimax(self, env: WarehouseEnv, robot_id, time_finish, depth, my_turn: bool, alpha: float, beta: float):
         # Case time finish or final state or depth limit
         if time.time() >= time_finish or depth == 0 or \
@@ -111,21 +111,22 @@ class AgentAlphaBeta(Agent):
 
 class AgentExpectimax(Agent):
     def __init__(self):
-        pass
+        self.special_ops = ["move north", "pick_up"]
 
     def run_step(self, env, agent_index, time_limit):
         # Run the Expectimax algorithm to get the best move
         finish_time = time.time() + time_limit * TIME_LIMITATION
         depth = 1
-        while time.time() < finish_time and depth < 3:
-            _, op = self.expectimax(env, agent_index, finish_time, depth, True)
+        chosen_op, max_value = None, float("-inf") 
+        while time.time() < finish_time:
+            _, op = self.expectimax(env, agent_index, finish_time, depth, my_turn=True)
             depth += 1
         return op
 
     def expectimax(self, env, robot_id, time_finish, depth, my_turn):
         # Check if the search should be finished and return the heuristic value
         if self.finish_search(env, time_finish, depth):
-            return (smart_heuristic(env, robot_id) - smart_heuristic(env, 1-robot_id)), None
+            return smart_heuristic(env, robot_id), None
 
         # Get the children of the current state and their operators
         current_robot = robot_id if my_turn else 1-robot_id
@@ -136,7 +137,7 @@ class AgentExpectimax(Agent):
         if my_turn:
             chosen_value, chosen_op = self.max_value(children, ops, robot_id, time_finish, depth, my_turn, chosen_value)
         else:
-            chosen_value = self.expect_value(children, robot_id, time_finish, depth, my_turn)
+            chosen_value = self.expect_value(children, ops, robot_id, time_finish, depth, my_turn)
 
         return chosen_value, chosen_op
 
@@ -149,9 +150,17 @@ class AgentExpectimax(Agent):
         return False
     
     # Calculate and returns expect of the value of the children
-    def expect_value(self, children, robot_id, time_finish, depth, my_turn):
-        values_sum = sum([self.expectimax(child, robot_id, time_finish, depth-1, not my_turn)[0] for child in children])
-        return values_sum / len(children)
+    def expect_value(self, children, ops, robot_id, time_finish, depth, my_turn):
+        values_sum = 0
+        num_of_ops = len(ops)
+        for op, child in zip(ops, children):
+            value, _ = self.expectimax(child, robot_id, time_finish, depth-1, not my_turn)
+            values_sum += value
+            # If the operator is special, give it double probability
+            if op in self.special_ops:
+                values_sum , num_of_ops = values_sum + value, num_of_ops + 1
+        return values_sum / num_of_ops
+        
     
     # Calculate and returns the max value of the children
     def max_value(self, children, ops, robot_id, time_finish, depth, my_turn, current_value):
@@ -159,11 +168,8 @@ class AgentExpectimax(Agent):
             value, _ = self.expectimax(child, robot_id, time_finish, depth-1, not my_turn)
             if value > current_value:
                 current_value, chosen_op = value, op
-            if time.time() >= time_finish:
-                break
         return current_value, chosen_op
     
-# ------------------------ smart_heuristic Helper Functions ------------------------ #
 # here you can check specific paths to get to know the environment
 class AgentHardCoded(Agent):
     def __init__(self):
