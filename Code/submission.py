@@ -66,8 +66,8 @@ class AgentMinimax(Agent):
             elif not my_turn and value < chosen_value:
                 chosen_value = value
                 chosen_op = op
-            #if time.time() >= time_finish:
-            #   break
+            if time.time() >= time_finish:
+                break
         return chosen_value, chosen_op
 
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
