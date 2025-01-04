@@ -7,6 +7,7 @@ import time
 BATTERY_WEIGHT = 1000
 CRITICAL_CHARGER_WEIGHT = 1000
 CREDIT_WEIGHT = 1000
+PACKAGE_WEIGHT = 10
 TIME_LIMITATION = 0.8
 
 def smart_heuristic(env: WarehouseEnv, robot_id: int):
@@ -14,7 +15,6 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     robot = env.get_robot(robot_id)
     if not robot:
         return 0
-    
     # Calculate the target point for the robot and the closest package
     package = closest_package(env, robot_id)
     charger = closest_charger(env, robot_id)
@@ -25,6 +25,10 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     target_distance = manhattan_distance(target, robot.position)
     charger_distance = manhattan_distance(charger.position, robot.position)
     
+    # If i dont have credit to charge with, go to package
+    if robot.credit <= 0:
+        package_weight*1000 - target_distance
+        
     # If I'm in alarming battery situation
     if charger_distance == robot.battery + 1 and robot.credit > 0:
         return robot.battery * BATTERY_WEIGHT + robot.credit * credit_weight - charger_distance * CRITICAL_CHARGER_WEIGHT
@@ -53,17 +57,17 @@ class AgentMinimax(Agent):
     
     def minimax(self, env: WarehouseEnv, robot_id, time_finish, depth, my_turn: bool):
         # Case time finish or final state or depth limit
-        if time.time() >= time_finish or depth == 0 or\
-                (env.get_robot(robot_id).battery == 0 and env.get_robot(abs(robot_id-1)).battery == 0):
+        if time.time() >= time_finish or depth == 0:
             return smart_heuristic(env, robot_id), None
-
-        ops, children = self.successors(env, robot_id)
+        curr_robot = robot_id if my_turn else 1 - robot_id
+        ops, children = self.successors(env, curr_robot)
         chosen_value = float("-inf") if my_turn else float("inf")
-        chosen_op = None
+        chosen_op = ops[0]
 
-        # Choosing the most fitted value, according to minimax astategy
+        # Choosing the most fitted value, according to minimax starategy
         for op, child in zip(ops, children):
             value, _ = self.minimax(child, robot_id, time_finish, depth-1, not my_turn)
+
             if my_turn and value > chosen_value:
                 chosen_value = value
                 chosen_op = op
@@ -71,16 +75,22 @@ class AgentMinimax(Agent):
                 chosen_value = value
                 chosen_op = op
             if time.time() >= time_finish:
-                break
+               break
         return chosen_value, chosen_op
 
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
         finish_time = time.time() + TIME_LIMITATION*time_limit
         depth = 1
+        max_value, best_op = float("-inf"), None
         while time.time() < finish_time:
-            _, op = self.minimax(env, agent_id, finish_time, depth, True)
+            value, op = self.minimax(env, agent_id, finish_time, depth, True)
+            if env.get_robot(agent_id).credit < 0 and (op == "pick up" or op == "drop off"):
+                value = value + 1000
+            if max_value < value and op in env.get_legal_operators(agent_id):
+                max_value = value
+                best_op = op
             depth += 1
-        return op
+        return best_op
 
 
 class AgentAlphaBeta(Agent):
@@ -117,11 +127,17 @@ class AgentAlphaBeta(Agent):
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
         finish_time = time.time() + TIME_LIMITATION * time_limit
         depth = 1
-        while time.time() < finish_time:
-            _, op = self.ABminimax(env, agent_id, finish_time, depth, True, float("-inf"), float("inf"))
-            depth += 1
-        return op
+        max_value, best_op = float("-inf"), None
 
+        while time.time() < finish_time:
+            value, op = self.ABminimax(env, agent_id, finish_time, depth, True, float("-inf"), float("inf"))
+            if env.get_robot(agent_id).credit < 0 and (op == "pick up" or op == "drop off"):
+                value = value + 1000
+            if max_value < value and op in env.get_legal_operators(agent_id):
+                max_value = value
+                best_op = op
+            depth += 1
+        return best_op
 
 class AgentExpectimax(Agent):
     def __init__(self):
