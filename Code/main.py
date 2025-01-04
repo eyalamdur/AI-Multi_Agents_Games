@@ -39,7 +39,8 @@ def run_agents():
     # agent_names = sys.argv
     agent_names = [args.agent0, args.agent1]
     env = WarehouseEnv()
-    
+    print("----------------------------------------------")
+    print("Agent 0: ", agent_names[0], " Agent 1: ", agent_names[1])
     if not args.tournament:
         env.generate(args.seed, 2*args.count_steps)
 
@@ -112,7 +113,7 @@ def run_agents():
         print("Robot 0 wins: ", robot0_wins)
         print("Robot 1 wins: ", robot1_wins)
         print("Draws: ", draws)
-
+        print("----------------------------------------------")
 
 if __name__ == "__main__":
     run_agents()
