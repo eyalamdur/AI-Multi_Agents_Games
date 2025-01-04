@@ -5,6 +5,7 @@ import time
 
 BATTERY_WEIGHT = 1000
 CREDIT_WEIGHT = 1000
+PACKAGE_WEIGHT = 10
 TIME_LIMITATION = 0.8
 
 
@@ -13,18 +14,24 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     robot = env.get_robot(robot_id)
     if not robot:
         return 0
-    
     # Calculate the target point for the robot and the closest package
     package = closest_package(env, robot_id)
     target = package.destination if robot.package else package.position
-    credit_weight, additional_cost = (CREDIT_WEIGHT, 0) if robot.package else (CREDIT_WEIGHT/10, manhattan_distance(package.position, package.destination))
-    
-    # If i have a package and the battery is not enough to deliver it, return to the charger
-    if manhattan_distance(target, robot.position) + manhattan_distance(closest_charger(env, robot_id).position , target)  >= robot.battery and robot.credit != 0:
-        return robot.battery * BATTERY_WEIGHT + robot.credit * credit_weight - manhattan_distance(closest_charger(env, robot_id).position , robot.position)
+    credit_weight, additional_cost, package_weight = (CREDIT_WEIGHT, 0, 10) if robot.package else (CREDIT_WEIGHT/10, manhattan_distance(package.position, package.destination), 0)
+    target_distance = manhattan_distance(target, robot.position)
+    charger = closest_charger(env, robot_id)
+    charger_distance = manhattan_distance(charger.position, robot.position)
+    if robot.credit <= 0:
+        package_weight*1000 - target_distance
+    # if I'm in alarming battery situation
+    if charger_distance == robot.battery + 1 and robot.credit > 0:
+        return robot.battery * BATTERY_WEIGHT + robot.credit * credit_weight - charger_distance*1000
+    # If I have a package and the battery is not enough to deliver it, return to the charger
+    if target_distance + manhattan_distance(charger.position, target) >= robot.battery and robot.credit > 0:
+        return robot.battery * BATTERY_WEIGHT/10 + robot.credit * credit_weight - charger_distance
     # Otherwise, return the heuristic value
     else:
-        return package_reward(package) - manhattan_distance(robot.position, target) - additional_cost + (robot.credit * credit_weight) + (robot.battery * BATTERY_WEIGHT)
+        return package_reward(package) * package_weight - target_distance - additional_cost + (robot.credit * credit_weight) + (robot.battery * BATTERY_WEIGHT)
     
     
 class AgentGreedyImproved(AgentGreedy):
@@ -40,34 +47,42 @@ class AgentMinimax(Agent):
         return my_robot.credit - foe_robot.credit
     def minimax(self, env: WarehouseEnv, robot_id, time_finish, depth, my_turn: bool):
         # Case time finish or final state or depth limit
-        if time.time() >= time_finish or depth == 0 or\
-                (env.get_robot(robot_id).battery == 0 and env.get_robot(abs(robot_id-1)).battery == 0):
+        if time.time() >= time_finish or depth == 0:
             return smart_heuristic(env, robot_id), None
-
-        ops, children = self.successors(env, robot_id)
+        # if env.get_robot(robot_id).battery == 0:
+        #     return -BATTERY_WEIGHT, None
+        curr_robot = robot_id if my_turn else 1 - robot_id
+        ops, children = self.successors(env, curr_robot)
         chosen_value = float("-inf") if my_turn else float("inf")
-        chosen_op = None
+        chosen_op = ops[0]
 
-        # Choosing the most fitted value, according to minimax astategy
+        # Choosing the most fitted value, according to minimax starategy
         for op, child in zip(ops, children):
             value, _ = self.minimax(child, robot_id, time_finish, depth-1, not my_turn)
+
             if my_turn and value > chosen_value:
                 chosen_value = value
                 chosen_op = op
             elif not my_turn and value < chosen_value:
                 chosen_value = value
                 chosen_op = op
-            if time.time() >= time_finish:
-                break
+            #if time.time() >= time_finish:
+            #   break
         return chosen_value, chosen_op
 
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
         finish_time = time.time() + TIME_LIMITATION*time_limit
         depth = 1
+        max_value, best_op = float("-inf"), None
         while time.time() < finish_time:
-            _, op = self.minimax(env, agent_id, finish_time, depth, True)
+            value, op = self.minimax(env, agent_id, finish_time, depth, True)
+            if env.get_robot(agent_id).credit < 0 and (op == "pick up" or op == "drop off"):
+                value = value + 1000
+            if max_value < value and op in env.get_legal_operators(agent_id):
+                max_value = value
+                best_op = op
             depth += 1
-        return op
+        return best_op
 
 class AgentAlphaBeta(Agent):
     # TODO: section c : 1
