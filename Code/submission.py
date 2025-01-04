@@ -5,6 +5,7 @@ import random
 import time
 
 BATTERY_WEIGHT = 1000
+CRITICAL_CHARGER_WEIGHT = 1000
 CREDIT_WEIGHT = 1000
 TIME_LIMITATION = 0.8
 
@@ -16,16 +17,27 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     
     # Calculate the target point for the robot and the closest package
     package = closest_package(env, robot_id)
+    charger = closest_charger(env, robot_id)
     target = package.destination if robot.package else package.position
-    credit_weight, additional_cost = (CREDIT_WEIGHT, 0) if robot.package else (CREDIT_WEIGHT/10, manhattan_distance(package.position, package.destination))
+    credit_weight, additional_cost, package_weight = (CREDIT_WEIGHT, 0, 10) if robot.package else (CREDIT_WEIGHT/10, manhattan_distance(package.position, package.destination), 0)
     
-    # If i have a package and the battery is not enough to deliver it, return to the charger
-    if manhattan_distance(target, robot.position) + manhattan_distance(closest_charger(env, robot_id).position , target)  >= robot.battery and robot.credit != 0:
-        return robot.battery * BATTERY_WEIGHT + robot.credit * credit_weight - manhattan_distance(closest_charger(env, robot_id).position , robot.position)
+    # distances calculation
+    target_distance = manhattan_distance(target, robot.position)
+    charger_distance = manhattan_distance(charger.position, robot.position)
+    
+    # If I'm in alarming battery situation
+    if charger_distance == robot.battery + 1 and robot.credit > 0:
+        return robot.battery * BATTERY_WEIGHT + robot.credit * credit_weight - charger_distance * CRITICAL_CHARGER_WEIGHT
+    
+    # If I have a package and the battery is not enough to deliver it, return to the charger
+    if target_distance + manhattan_distance(charger.position, target) >= robot.battery and robot.credit > 0:
+        return robot.battery * BATTERY_WEIGHT/10 + robot.credit * credit_weight - charger_distance
+    
     # Otherwise, return the heuristic value
-    else:
-        return package_reward(package) - manhattan_distance(robot.position, target) - additional_cost + (robot.credit * credit_weight) + (robot.battery * BATTERY_WEIGHT)
+    return package_reward(package) * package_weight - target_distance - additional_cost + (robot.credit * credit_weight) + (robot.battery * BATTERY_WEIGHT)
     
+
+# -------------------------------------- Agents ------------------------------------ #
     
 class AgentGreedyImproved(AgentGreedy):
     def heuristic(self, env: WarehouseEnv, robot_id: int):
@@ -70,6 +82,7 @@ class AgentMinimax(Agent):
             depth += 1
         return op
 
+
 class AgentAlphaBeta(Agent):
     
     def ABminimax(self, env: WarehouseEnv, robot_id, time_finish, depth, my_turn: bool, alpha: float, beta: float):
@@ -109,6 +122,7 @@ class AgentAlphaBeta(Agent):
             depth += 1
         return op
 
+
 class AgentExpectimax(Agent):
     def __init__(self):
         self.special_ops = ["move north", "pick_up"]
@@ -117,11 +131,14 @@ class AgentExpectimax(Agent):
         # Run the Expectimax algorithm to get the best move
         finish_time = time.time() + time_limit * TIME_LIMITATION
         depth = 1
-        chosen_op, max_value = None, float("-inf") 
-        while time.time() < finish_time:
-            _, op = self.expectimax(env, agent_index, finish_time, depth, my_turn=True)
+        max_value, best_op = float("-inf"), None
+        
+        while time.time() < finish_time and depth < 10:
+            value, op = self.expectimax(env, agent_index, finish_time, depth, my_turn=True)
+            if value > max_value:
+                max_value, best_op = value, op
             depth += 1
-        return op
+        return best_op
 
     def expectimax(self, env, robot_id, time_finish, depth, my_turn):
         # Check if the search should be finished and return the heuristic value
@@ -137,7 +154,7 @@ class AgentExpectimax(Agent):
         if my_turn:
             chosen_value, chosen_op = self.max_value(children, ops, robot_id, time_finish, depth, my_turn, chosen_value)
         else:
-            chosen_value = self.expect_value(children, ops, robot_id, time_finish, depth, my_turn)
+            chosen_value, chosen_op = self.expect_value(children, ops, robot_id, time_finish, depth, my_turn)
 
         return chosen_value, chosen_op
 
@@ -159,7 +176,7 @@ class AgentExpectimax(Agent):
             # If the operator is special, give it double probability
             if op in self.special_ops:
                 values_sum , num_of_ops = values_sum + value, num_of_ops + 1
-        return values_sum / num_of_ops
+        return values_sum / num_of_ops, None
         
     
     # Calculate and returns the max value of the children
@@ -169,6 +186,7 @@ class AgentExpectimax(Agent):
             if value > current_value:
                 current_value, chosen_op = value, op
         return current_value, chosen_op
+    
     
 # here you can check specific paths to get to know the environment
 class AgentHardCoded(Agent):
