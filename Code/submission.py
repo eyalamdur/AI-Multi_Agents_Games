@@ -75,8 +75,7 @@ class AgentMinimax(Agent):
                 chosen_value = value
                 chosen_op = op
             if time.time() >= time_finish:
-
-               break
+                break
         return chosen_value, chosen_op
 
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
@@ -103,27 +102,32 @@ class AgentAlphaBeta(Agent):
 
         curr_robot = robot_id if my_turn else 1 - robot_id
         ops, children = self.successors(env, curr_robot)
-        chosen_value = float("-inf") if my_turn else float("inf")
         chosen_op = ops[0]
-
-        # Choosing the most fitted value, according to ABminimax astategy
-        for op, child in zip(ops, children):
-            value, _ = self.ABminimax(child, robot_id, time_finish, depth - 1, not my_turn, alpha, beta)
-            if my_turn:
-                chosen_value = value if value > chosen_value else chosen_value
-                alpha = chosen_value if chosen_value > alpha else alpha
-                chosen_op = op
+        if my_turn:
+            chosen_value = float("-inf")
+            for op, child in zip(ops, children):
+                value, _ = self.ABminimax(child, robot_id, time_finish, depth - 1, not my_turn, alpha, beta)
+                if chosen_value < value:
+                    chosen_value = value
+                    chosen_op = op
+                alpha = max(chosen_value, alpha)
                 if chosen_value >= beta:
                     return float("inf"), op
-            else:
-                chosen_value = value if value < chosen_value else chosen_value
-                beta = chosen_value if chosen_value < beta else beta
-                chosen_op = op
+            return chosen_value, chosen_op
+        # not my turn
+        else:
+            chosen_value = float("inf")
+            for op, child in zip(ops, children):
+                value, _ = self.ABminimax(child, robot_id, time_finish, depth - 1, not my_turn, alpha, beta)
+                if chosen_value > value:
+                    chosen_value = value
+                    chosen_op = op
+                beta = min(chosen_value, beta)
                 if chosen_value <= alpha:
                     return float("-inf"), op
-            if time.time() >= time_finish:
-                break
-        return chosen_value, chosen_op
+            return chosen_value, chosen_op
+
+
 
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
         finish_time = time.time() + TIME_LIMITATION * time_limit
