@@ -58,7 +58,7 @@ class AgentMinimax(Agent):
     def minimax(self, env: WarehouseEnv, robot_id, time_finish, depth, my_turn: bool):
         # Case time finish or final state or depth limit
         if time.time() >= time_finish or depth == 0:
-            return smart_heuristic(env, robot_id), None
+            return smart_heuristic(env, robot_id), env.get_legal_operators(robot_id)[0]
         curr_robot = robot_id if my_turn else 1 - robot_id
         ops, children = self.successors(env, curr_robot)
         chosen_value = float("-inf") if my_turn else float("inf")
@@ -81,11 +81,11 @@ class AgentMinimax(Agent):
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
         finish_time = time.time() + TIME_LIMITATION*time_limit
         depth = 1
-        max_value, best_op = float("-inf"), None
+        max_value, best_op = float("-inf"), env.get_legal_operators(agent_id)[0]
         while time.time() < finish_time:
             value, op = self.minimax(env, agent_id, finish_time, depth, True)
-            if env.get_robot(agent_id).credit < 0 and (op == "pick up" or op == "drop off"):
-                value = value + 1000
+            # if env.get_robot(agent_id).credit < 0 and (op == "pick up" or op == "drop off"):
+            #     value = value + 1000
             if max_value < value and op in env.get_legal_operators(agent_id):
                 max_value = value
                 best_op = op
@@ -98,7 +98,7 @@ class AgentAlphaBeta(Agent):
     def ABminimax(self, env: WarehouseEnv, robot_id, time_finish, depth, my_turn: bool, alpha: float, beta: float):
         # Case time finish or final state or depth limit
         if time.time() >= time_finish or depth == 0:
-            return smart_heuristic(env, robot_id), None
+            return smart_heuristic(env, robot_id), env.get_legal_operators(robot_id)[0]
 
         curr_robot = robot_id if my_turn else 1 - robot_id
         ops, children = self.successors(env, curr_robot)
@@ -132,11 +132,11 @@ class AgentAlphaBeta(Agent):
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
         finish_time = time.time() + TIME_LIMITATION * time_limit
         depth = 1
-        max_value, best_op = float("-inf"), None
+        max_value, best_op = float("-inf"), env.get_legal_operators(agent_id)[0]
         while time.time() < finish_time:
             value, op = self.ABminimax(env, agent_id, finish_time, depth, True, float("-inf"), float("inf"))
-            if env.get_robot(agent_id).credit < 0 and (op == "pick up" or op == "drop off"):
-                value = value + 1000
+            # if env.get_robot(agent_id).credit < 0 and (op == "pick up" or op == "drop off"):
+            #     value = value + 1000
             if max_value < value and op in env.get_legal_operators(agent_id):
                 max_value = value
                 best_op = op
@@ -151,24 +151,26 @@ class AgentExpectimax(Agent):
         # Run the Expectimax algorithm to get the best move
         finish_time = time.time() + time_limit * TIME_LIMITATION
         depth = 1
-        max_value, best_op = float("-inf"), None
+        max_value, best_op = float("-inf"), env.get_legal_operators(agent_index)[0]
         
         while time.time() < finish_time:
             value, op = self.expectimax(env, agent_index, finish_time, depth, my_turn=True)
             if value > max_value:
                 max_value, best_op = value, op
             depth += 1
+
+        # print("operator: ", best_op)
         return best_op
 
     def expectimax(self, env, robot_id, time_finish, depth, my_turn):
         # Check if the search should be finished and return the heuristic value
         if self.finish_search(env, time_finish, depth):
-            return smart_heuristic(env, robot_id), None
+            return smart_heuristic(env, robot_id), env.get_legal_operators(robot_id)[0]
 
         # Get the children of the current state and their operators
         current_robot = robot_id if my_turn else 1-robot_id
         ops, children = self.successors(env, current_robot)
-        chosen_value, chosen_op= float("-inf") if my_turn else float("inf"), None
+        chosen_value, chosen_op = float("-inf") if my_turn else float("inf"), ops[0]
 
         # Choosing the most fitted value, according to expectimax Astrategy
         if my_turn:
@@ -196,7 +198,7 @@ class AgentExpectimax(Agent):
             # If the operator is special, give it double probability
             if op in self.special_ops:
                 values_sum , num_of_ops = values_sum + value, num_of_ops + 1
-        return values_sum / num_of_ops, None
+        return values_sum / num_of_ops, ops[0]
         
     
     # Calculate and returns the max value of the children
