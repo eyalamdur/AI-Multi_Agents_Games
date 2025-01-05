@@ -7,7 +7,7 @@ import time
 BATTERY_WEIGHT = 1000
 CRITICAL_CHARGER_WEIGHT = 1000
 CREDIT_WEIGHT = 1000
-PACKAGE_WEIGHT = 10
+PACKAGE_WEIGHT = 100
 TIME_LIMITATION = 0.8
 
 def smart_heuristic(env: WarehouseEnv, robot_id: int):
@@ -27,7 +27,7 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     
     # If i dont have credit to charge with, go to package
     if robot.credit <= 0:
-        package_weight*1000 - target_distance
+        return package_weight*PACKAGE_WEIGHT + robot.credit*CREDIT_WEIGHT - target_distance
         
     # If I'm in alarming battery situation
     if charger_distance == robot.battery + 1 and robot.credit > 0:
@@ -153,7 +153,7 @@ class AgentExpectimax(Agent):
         depth = 1
         max_value, best_op = float("-inf"), None
         
-        while time.time() < finish_time and depth < 10:
+        while time.time() < finish_time:
             value, op = self.expectimax(env, agent_index, finish_time, depth, my_turn=True)
             if value > max_value:
                 max_value, best_op = value, op
@@ -182,7 +182,7 @@ class AgentExpectimax(Agent):
     def finish_search(self, env, time_finish, depth):
         FIRST_ROBOT_ID, SECOND_ROBOT_ID = 0, 1
         if time.time() >= time_finish or depth == 0 or \
-            (env.get_robot(FIRST_ROBOT_ID).battery == 0 and env.get_robot(abs(SECOND_ROBOT_ID)).battery == 0):
+            (env.get_robot(FIRST_ROBOT_ID).battery == 0 and env.get_robot(SECOND_ROBOT_ID).battery == 0):
             return True
         return False
     

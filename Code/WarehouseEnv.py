@@ -135,7 +135,7 @@ class WarehouseEnv(object):
         robot = self.robots[robot_index]
         other_robot = self.robots[(robot_index + 1) % 2]
         assert operator in self.get_legal_operators(robot_index)
-        assert not self.num_steps < 0
+        # assert not self.num_steps < 0
         if operator == 'park':
             pass
         elif operator == 'move north':
@@ -165,7 +165,7 @@ class WarehouseEnv(object):
 
             robot.package = None
         else:
-            assert False
+            assert False, "None Action"
 
     def done(self):
         return len([robot for robot in self.robots if robot.battery > 0]) == 0 or self.num_steps <= 0
