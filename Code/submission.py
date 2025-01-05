@@ -7,14 +7,16 @@ import time
 BATTERY_WEIGHT = 1000
 CRITICAL_CHARGER_WEIGHT = 1000
 CREDIT_WEIGHT = 1000
-PACKAGE_WEIGHT = 150
+PACKAGE_WEIGHT = 50
 TIME_LIMITATION = 0.8
+EXPECTIMAX_TIME_LIMITATION = 0.75
 
 def smart_heuristic(env: WarehouseEnv, robot_id: int):
     # Get robot by id and validate it exists
     robot = env.get_robot(robot_id)
     if not robot:
         return 0
+    
     # Calculate the target point for the robot and the closest package
     package = closest_package(env, robot_id)
     charger = closest_charger(env, robot_id)
@@ -145,7 +147,7 @@ class AgentExpectimax(Agent):
 
     def run_step(self, env, agent_index, time_limit):
         # Run the Expectimax algorithm to get the best move
-        finish_time = time.time() + time_limit * TIME_LIMITATION
+        finish_time = time.time() + time_limit * EXPECTIMAX_TIME_LIMITATION
         depth = 1
         max_value, best_op = float("-inf"), env.get_legal_operators(agent_index)[0]
         
