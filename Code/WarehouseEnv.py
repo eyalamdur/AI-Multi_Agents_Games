@@ -165,7 +165,7 @@ class WarehouseEnv(object):
 
             robot.package = None
         else:
-            assert False, "None Action"
+            assert False
 
     def done(self):
         return len([robot for robot in self.robots if robot.battery > 0]) == 0 or self.num_steps <= 0

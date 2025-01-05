@@ -109,7 +109,7 @@ def run_agents():
         else:
             print('robot', balances.index(max(balances)), 'wins!')
     else:
-        num_of_games = 20
+        num_of_games = 50
         with Pool(processes=5) as pool:
             seeds = [args.seed + random.randint(1,100) + i for i in range(num_of_games)]
             results = pool.starmap(play_game, [(seed, args.count_steps, agent_names, agents, args.time_limit, args.console_print, args.screen_print) for seed in seeds])

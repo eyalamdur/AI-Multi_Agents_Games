@@ -7,7 +7,7 @@ import time
 BATTERY_WEIGHT = 1000
 CRITICAL_CHARGER_WEIGHT = 1000
 CREDIT_WEIGHT = 1000
-PACKAGE_WEIGHT = 100
+PACKAGE_WEIGHT = 150
 TIME_LIMITATION = 0.8
 
 def smart_heuristic(env: WarehouseEnv, robot_id: int):
@@ -27,10 +27,10 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     
     # If i dont have credit to charge with, go to package
     if robot.credit <= 0:
-        return package_weight*PACKAGE_WEIGHT + robot.credit*CREDIT_WEIGHT - target_distance
+        return package_weight*PACKAGE_WEIGHT + robot.credit * CREDIT_WEIGHT * CREDIT_WEIGHT - target_distance
         
     # If I'm in alarming battery situation
-    if charger_distance == robot.battery + 1 and robot.credit > 0:
+    if charger_distance == robot.battery and robot.credit > 0:
         return robot.battery * BATTERY_WEIGHT + robot.credit * credit_weight - charger_distance * CRITICAL_CHARGER_WEIGHT
     
     # If I have a package and the battery is not enough to deliver it, return to the charger
@@ -50,15 +50,11 @@ class AgentGreedyImproved(AgentGreedy):
 
 class AgentMinimax(Agent):
     
-    def gap_credit_points(self, env: WarehouseEnv, robot_id):
-        my_robot = env.get_robot(robot_id)
-        foe_robot = env.get_robot(abs(robot_id-1))
-        return my_robot.credit - foe_robot.credit
-    
     def minimax(self, env: WarehouseEnv, robot_id, time_finish, depth, my_turn: bool):
         # Case time finish or final state or depth limit
         if time.time() >= time_finish or depth == 0:
             return smart_heuristic(env, robot_id), None
+        
         curr_robot = robot_id if my_turn else 1 - robot_id
         ops, children = self.successors(env, curr_robot)
         chosen_value = float("-inf") if my_turn else float("inf")
@@ -84,8 +80,8 @@ class AgentMinimax(Agent):
         max_value, best_op = float("-inf"), None
         while time.time() < finish_time:
             value, op = self.minimax(env, agent_id, finish_time, depth, True)
-            if env.get_robot(agent_id).credit < 0 and (op == "pick up" or op == "drop off"):
-                value = value + 1000
+            # if env.get_robot(agent_id).credit < 0 and (op == "pick up" or op == "drop off"):
+            #     value = value + 1000
             if max_value < value and op in env.get_legal_operators(agent_id):
                 max_value = value
                 best_op = op
@@ -135,8 +131,8 @@ class AgentAlphaBeta(Agent):
         max_value, best_op = float("-inf"), None
         while time.time() < finish_time:
             value, op = self.ABminimax(env, agent_id, finish_time, depth, True, float("-inf"), float("inf"))
-            if env.get_robot(agent_id).credit < 0 and (op == "pick up" or op == "drop off"):
-                value = value + 1000
+            # if env.get_robot(agent_id).credit < 0 and (op == "pick up" or op == "drop off"):
+            #     value = value + 1000
             if max_value < value and op in env.get_legal_operators(agent_id):
                 max_value = value
                 best_op = op
