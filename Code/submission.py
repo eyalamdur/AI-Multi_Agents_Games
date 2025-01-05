@@ -88,13 +88,13 @@ class AgentAlphaBeta(Agent):
     # TODO: section c : 1
     def ABminimax(self, env: WarehouseEnv, robot_id, time_finish, depth, my_turn: bool, alpha: float, beta: float):
         # Case time finish or final state or depth limit
-        if time.time() >= time_finish or depth == 0 or \
-                (env.get_robot(robot_id).battery == 0 and env.get_robot(abs(robot_id - 1)).battery == 0):
+        if time.time() >= time_finish or depth == 0:
             return smart_heuristic(env, robot_id), None
 
-        ops, children = self.successors(env, robot_id)
+        curr_robot = robot_id if my_turn else 1 - robot_id
+        ops, children = self.successors(env, curr_robot)
         chosen_value = float("-inf") if my_turn else float("inf")
-        chosen_op = None
+        chosen_op = ops[0]
 
         # Choosing the most fitted value, according to ABminimax astategy
         for op, child in zip(ops, children):
@@ -118,10 +118,19 @@ class AgentAlphaBeta(Agent):
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
         finish_time = time.time() + TIME_LIMITATION * time_limit
         depth = 1
+        max_value, best_op = float("-inf"), None
         while time.time() < finish_time:
-            _, op = self.ABminimax(env, agent_id, finish_time, depth, True, float("-inf"), float("inf"))
+            value, op = self.ABminimax(env, agent_id, finish_time, depth, True, float("-inf"), float("inf"))
+            if env.get_robot(agent_id).credit < 0 and (op == "pick up" or op == "drop off"):
+                value = value + 1000
+            if max_value < value and op in env.get_legal_operators(agent_id):
+                max_value = value
+                best_op = op
             depth += 1
-        return op
+        return best_op
+
+
+
 
 class AgentExpectimax(Agent):
     # TODO: section d : 1
