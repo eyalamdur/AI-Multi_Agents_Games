@@ -109,58 +109,46 @@ def run_agents():
         else:
             print('robot', balances.index(max(balances)), 'wins!')
     else:
-        num_of_games = 50
-        with Pool(processes=5) as pool:
-            seeds = [args.seed + random.randint(1,100) + i for i in range(num_of_games)]
-            results = pool.starmap(play_game, [(seed, args.count_steps, agent_names, agents, args.time_limit, args.console_print, args.screen_print) for seed in seeds])
+        num_of_games = 5   
+        robot0_wins = 0
+        robot1_wins = 0
+        draws = 0
 
-        robot0_wins = results.count('robot0')
-        robot1_wins = results.count('robot1')
-        draws = results.count('draw')
+        for i in range(num_of_games):
+            env.generate(args.seed + i, 2*args.count_steps)
+            if args.console_print:
+                print('initial board:')
+                env.print()
+            if args.screen_print:
+                env.pygame_print()
 
+            for _ in range(args.count_steps):
+                for i, agent_name in enumerate(agent_names):
+                    agent = agents[agent_name]
+                    start = time.time()
+                    op = agent.run_step(env, i, args.time_limit)
+                    end = time.time()
+                    if end - start > args.time_limit:
+                        raise RuntimeError("Agent used too much time!")
+                    env.apply_operator(i, op)
+                if args.console_print:
+                    print('robot ' + str(i) + ' chose ' + op)
+                    env.print()
+                if args.screen_print:
+                    env.pygame_print()
+                if env.done():
+                    break
+            balances = env.get_balances()
+            if balances[0] == balances[1]:
+                draws += 1
+            elif balances[0] > balances[1]:
+                robot0_wins += 1
+            else:
+                robot1_wins += 1
         print("Robot 0 wins: ", robot0_wins)
         print("Robot 1 wins: ", robot1_wins)
         print("Draws: ", draws)
         print("----------------------------------------------")
-        
-        # robot0_wins = 0
-        # robot1_wins = 0
-        # draws = 0
-
-        # for i in range(num_of_games):
-        #     env.generate(args.seed + i, 2*args.count_steps)
-        #     if args.console_print:
-        #         print('initial board:')
-        #         env.print()
-        #     if args.screen_print:
-        #         env.pygame_print()
-
-        #     for _ in range(args.count_steps):
-        #         for i, agent_name in enumerate(agent_names):
-        #             agent = agents[agent_name]
-        #             start = time.time()
-        #             op = agent.run_step(env, i, args.time_limit)
-        #             end = time.time()
-        #             if end - start > args.time_limit:
-        #                 raise RuntimeError("Agent used too much time!")
-        #             env.apply_operator(i, op)
-        #         if args.console_print:
-        #             print('robot ' + str(i) + ' chose ' + op)
-        #             env.print()
-        #         if args.screen_print:
-        #             env.pygame_print()
-        #         if env.done():
-        #             break
-        #     balances = env.get_balances()
-        #     if balances[0] == balances[1]:
-        #         draws += 1
-        #     elif balances[0] > balances[1]:
-        #         robot0_wins += 1
-        #     else:
-        #         robot1_wins += 1
-        # print("Robot 0 wins: ", robot0_wins)
-        # print("Robot 1 wins: ", robot1_wins)
-        # print("Draws: ", draws)
 
 if __name__ == "__main__":
     run_agents()

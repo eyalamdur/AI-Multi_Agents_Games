@@ -1,32 +1,39 @@
 from Agent import Agent, AgentGreedy
 from WarehouseEnv import WarehouseEnv, manhattan_distance
-from enum import Enum
 import random
 import time
+from func_timeout import func_timeout, FunctionTimedOut
 
-BATTERY_WEIGHT = 1000
+BATTERY_WEIGHT = 1010
 CRITICAL_CHARGER_WEIGHT = 1000
 CREDIT_WEIGHT = 1000
 PACKAGE_WEIGHT = 50
 TIME_LIMITATION = 0.8
+EXPECTIMAX_TIME_LIMITATION = 0.75
 
 def smart_heuristic(env: WarehouseEnv, robot_id: int):
     # Get robot by id and validate it exists
     robot = env.get_robot(robot_id)
-    if not robot:
+    enemy_robot = env.get_robot(1-robot_id)
+    
+    if not robot or not enemy_robot:
         return 0
+    
     # Calculate the target point for the robot and the closest package
     package = closest_package(env, robot_id)
     charger = closest_charger(env, robot_id)
     target = package.destination if robot.package else package.position
-    credit_weight, additional_cost, package_weight = (CREDIT_WEIGHT, 0, 10) if robot.package else (CREDIT_WEIGHT/10, manhattan_distance(package.position, package.destination), 0)
-    
+        
     # distances calculation
     target_distance = manhattan_distance(target, robot.position)
     charger_distance = manhattan_distance(charger.position, robot.position)
     
+    # Optional weights for the heuristic calculation And additional cost for the package
+    credit_weight, additional_cost, package_weight = (CREDIT_WEIGHT, 0, 10) if robot.package else (CREDIT_WEIGHT/10, manhattan_distance(package.position, package.destination), 0)
+    #credits_gap = robot.credit - enemy_robot.credit
+    
     # If i dont have credit to charge with, go to package
-    if robot.credit <= 0:
+    if robot.credit < 0:
         return package_weight*PACKAGE_WEIGHT + robot.credit * CREDIT_WEIGHT * CREDIT_WEIGHT - target_distance
         
     # If I'm in alarming battery situation
@@ -34,11 +41,11 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
         return robot.battery * BATTERY_WEIGHT + robot.credit * credit_weight - charger_distance * CRITICAL_CHARGER_WEIGHT
     
     # If I have a package and the battery is not enough to deliver it, return to the charger
-    if target_distance + manhattan_distance(charger.position, target) >= robot.battery and robot.credit > 0:
-        return robot.battery * BATTERY_WEIGHT/10 + robot.credit * credit_weight - charger_distance
+    if target_distance + manhattan_distance(charger.position, target) > robot.battery and robot.credit > 0:
+        return robot.battery * BATTERY_WEIGHT + robot.credit * CREDIT_WEIGHT - charger_distance
     
     # Otherwise, return the heuristic value
-    return package_reward(package) * package_weight - target_distance - additional_cost + (robot.credit * credit_weight) + (robot.battery * BATTERY_WEIGHT)
+    return package_reward(package) * package_weight - target_distance - additional_cost + (robot.credit * CREDIT_WEIGHT) + (robot.battery * BATTERY_WEIGHT)
     
 
 # -------------------------------------- Agents ------------------------------------ #
@@ -80,8 +87,6 @@ class AgentMinimax(Agent):
         max_value, best_op = float("-inf"), env.get_legal_operators(agent_id)[0]
         while time.time() < finish_time:
             value, op = self.minimax(env, agent_id, finish_time, depth, True)
-            # if env.get_robot(agent_id).credit < 0 and (op == "pick up" or op == "drop off"):
-            #     value = value + 1000
             if max_value < value and op in env.get_legal_operators(agent_id):
                 max_value = value
                 best_op = op
@@ -131,21 +136,19 @@ class AgentAlphaBeta(Agent):
         max_value, best_op = float("-inf"), env.get_legal_operators(agent_id)[0]
         while time.time() < finish_time:
             value, op = self.ABminimax(env, agent_id, finish_time, depth, True, float("-inf"), float("inf"))
-            # if env.get_robot(agent_id).credit < 0 and (op == "pick up" or op == "drop off"):
-            #     value = value + 1000
             if max_value < value and op in env.get_legal_operators(agent_id):
                 max_value = value
                 best_op = op
             depth += 1
         return best_op
-
+        
 class AgentExpectimax(Agent):
     def __init__(self):
         self.special_ops = ["move north", "pick_up"]
 
     def run_step(self, env, agent_index, time_limit):
         # Run the Expectimax algorithm to get the best move
-        finish_time = time.time() + time_limit * TIME_LIMITATION
+        finish_time = time.time() + time_limit * EXPECTIMAX_TIME_LIMITATION
         depth = 1
         max_value, best_op = float("-inf"), env.get_legal_operators(agent_index)[0]
         
@@ -155,7 +158,6 @@ class AgentExpectimax(Agent):
                 max_value, best_op = value, op
             depth += 1
 
-        # print("operator: ", best_op)
         return best_op
 
     def expectimax(self, env, robot_id, time_finish, depth, my_turn):
