@@ -7,7 +7,7 @@ import time
 BATTERY_WEIGHT = 1000
 CRITICAL_CHARGER_WEIGHT = 1000
 CREDIT_WEIGHT = 1000
-PACKAGE_WEIGHT = 150
+PACKAGE_WEIGHT = 50
 TIME_LIMITATION = 0.8
 
 def smart_heuristic(env: WarehouseEnv, robot_id: int):
