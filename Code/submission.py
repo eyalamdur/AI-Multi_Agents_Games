@@ -150,12 +150,14 @@ class AgentMinimax(Agent):
         depth = 1
         max_value = float("-inf")
         while True:
-            value, op = func_timeout(timeout=finish_time-time.time(), func=self.minimax, args=(env, agent_id, depth, True, finish_time),)
-            if max_value < value and op in env.get_legal_operators(agent_id):
-                max_value = value
-                self.best_op = op
-            depth += 1
-
+            try:
+                value, op = func_timeout(timeout=finish_time-time.time(), func=self.minimax, args=(env, agent_id, depth, True, finish_time),)
+                if max_value < value and op in env.get_legal_operators(agent_id):
+                    max_value = value
+                    self.best_op = op
+                depth += 1
+            except TypeError:
+                pass
 
 class AgentAlphaBeta(Agent):
     def init(self):
