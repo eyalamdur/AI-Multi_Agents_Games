@@ -1,6 +1,5 @@
 from Agent import Agent, AgentGreedy
 from WarehouseEnv import WarehouseEnv, manhattan_distance
-from enum import Enum
 import random
 import time
 from func_timeout import func_timeout, FunctionTimedOut
@@ -15,8 +14,9 @@ EXPECTIMAX_TIME_LIMITATION = 0.75
 def smart_heuristic(env: WarehouseEnv, robot_id: int):
     # Get robot by id and validate it exists
     robot = env.get_robot(robot_id)
-    # enemy_robot = env.get_robot(1-robot_id)
-    if not robot:
+    enemy_robot = env.get_robot(1-robot_id)
+    
+    if not robot or not enemy_robot:
         return 0
     
     # Calculate the target point for the robot and the closest package
@@ -41,11 +41,11 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
         return robot.battery * BATTERY_WEIGHT + robot.credit * credit_weight - charger_distance * CRITICAL_CHARGER_WEIGHT
     
     # If I have a package and the battery is not enough to deliver it, return to the charger
-    if target_distance + manhattan_distance(charger.position, target) >= robot.battery and robot.credit > 0:
-        return robot.battery * BATTERY_WEIGHT/10 + robot.credit * credit_weight - charger_distance
+    if target_distance + manhattan_distance(charger.position, target) > robot.battery and robot.credit > 0:
+        return robot.battery * BATTERY_WEIGHT + robot.credit * CREDIT_WEIGHT - charger_distance
     
     # Otherwise, return the heuristic value
-    return package_reward(package) * package_weight - target_distance - additional_cost + (robot.credit * credit_weight) + (robot.battery * BATTERY_WEIGHT)
+    return package_reward(package) * package_weight - target_distance - additional_cost + (robot.credit * CREDIT_WEIGHT) + (robot.battery * BATTERY_WEIGHT)
     
 
 # def smart_heuristic(env: WarehouseEnv, robot_id: int):
@@ -137,12 +137,13 @@ class AgentMinimax(Agent):
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
         # Call minimax with the specified time limit for each invocation
         finish_time = time.time() + TIME_LIMITATION*time_limit
+        
+        # in case of timeout and the best_op is None, ensure first legal operator
+        self.best_op = env.get_legal_operators(agent_id)[0]
         try:
             func_timeout(timeout=finish_time-time.time(), func=self.run_minimax, args=(env, agent_id, finish_time),)
-        except FunctionTimedOut:
-            # in case of timeout and the best_op is None, choose the first legal operator
-            if self.best_op is None:
-                self.best_op = env.get_legal_operators(agent_id)[0]
+        except (FunctionTimedOut, TypeError):
+            pass
                 
         return self.best_op
 
@@ -150,14 +151,14 @@ class AgentMinimax(Agent):
         depth = 1
         max_value = float("-inf")
         while True:
-            try:
-                value, op = func_timeout(timeout=finish_time-time.time(), func=self.minimax, args=(env, agent_id, depth, True, finish_time),)
-                if max_value < value and op in env.get_legal_operators(agent_id):
-                    max_value = value
-                    self.best_op = op
-                depth += 1
-            except TypeError:
-                pass
+            # try:
+            value, op = func_timeout(timeout=finish_time-time.time(), func=self.minimax, args=(env, agent_id, depth, True, finish_time),)
+            if max_value < value and op in env.get_legal_operators(agent_id):
+                max_value = value
+                self.best_op = op
+            depth += 1
+            # except TypeError:
+            #     pass
 
 class AgentAlphaBeta(Agent):
     def init(self):
