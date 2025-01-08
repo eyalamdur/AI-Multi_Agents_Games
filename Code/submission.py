@@ -2,16 +2,15 @@ from Agent import Agent, AgentGreedy
 from WarehouseEnv import WarehouseEnv, manhattan_distance
 import random
 import time
-from func_timeout import func_timeout, FunctionTimedOut
 
-BATTERY_WEIGHT = 1010
-CRITICAL_CHARGER_WEIGHT = 1000
-CREDIT_WEIGHT = 1000
-PACKAGE_WEIGHT = 50
+BATTERY_WEIGHT = 110
+CRITICAL_CHARGER_WEIGHT = 100
+CREDIT_WEIGHT = 100
+PACKAGE_WEIGHT = 90
+DISTANCE_WEIGHT = 30
 TIME_LIMITATION = 0.8
-EXPECTIMAX_TIME_LIMITATION = 0.75
 
-def smart_heuristic(env: WarehouseEnv, robot_id: int):
+def smart_heuristic_2(env: WarehouseEnv, robot_id: int):
     # Get robot by id and validate it exists
     robot = env.get_robot(robot_id)
     enemy_robot = env.get_robot(1-robot_id)
@@ -30,13 +29,13 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     
     # Optional weights for the heuristic calculation And additional cost for the package
     credit_weight, additional_cost, package_weight = (CREDIT_WEIGHT, 0, 10) if robot.package else (CREDIT_WEIGHT/10, manhattan_distance(package.position, package.destination), 0)
-    #credits_gap = robot.credit - enemy_robot.credit
+    credits_gap = (robot.credit - enemy_robot.credit) * CREDIT_WEIGHT
     
     # If i dont have credit to charge with, go to package
     if robot.credit < 0:
         return package_weight*PACKAGE_WEIGHT + robot.credit * CREDIT_WEIGHT * CREDIT_WEIGHT - target_distance
         
-    # If I'm in alarming battery situation
+    # If I'm in critical battery situation
     if charger_distance == robot.battery and robot.credit > 0:
         return robot.battery * BATTERY_WEIGHT + robot.credit * credit_weight - charger_distance * CRITICAL_CHARGER_WEIGHT
     
@@ -46,8 +45,45 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     
     # Otherwise, return the heuristic value
     return package_reward(package) * package_weight - target_distance - additional_cost + (robot.credit * CREDIT_WEIGHT) + (robot.battery * BATTERY_WEIGHT)
-    
 
+
+def smart_heuristic(env: WarehouseEnv, robot_id: int):  
+    # Get robots 
+    robot = env.get_robot(robot_id)
+    enemy_robot = env.get_robot(1-robot_id)
+    
+    # Define current state variables
+    package = closest_package(env, robot_id)
+    charger = closest_charger(env, robot_id)
+    target = package.destination if robot.package else package.position
+    
+    # distances calculation
+    target_distance = manhattan_distance(target, robot.position)
+    charger_distance = manhattan_distance(charger.position, robot.position)
+    
+    # Pre calculation for the heuristic
+    credit_gap = robot.credit - enemy_robot.credit
+    battery_cost = target_distance + manhattan_distance(charger.position, target) if robot.package else target_distance + manhattan_distance(package.position, target) + manhattan_distance(package.position, charger.position)
+    package_weight = PACKAGE_WEIGHT if robot.package else PACKAGE_WEIGHT/10 
+
+    # Initial heuristic value (Add the credit difference to the heuristic)
+    h_value = CREDIT_WEIGHT * credit_gap + robot.battery * BATTERY_WEIGHT*2
+
+    # If i dont have credit to charge with, go to package
+    if robot.credit <= 0:
+        h_value += package_reward(package) * package_weight + robot.credit * CREDIT_WEIGHT - target_distance * DISTANCE_WEIGHT
+    
+    # If I'm in critical battery situation
+    if robot.battery == charger_distance and robot.credit > 0:
+        h_value += BATTERY_WEIGHT * robot.battery - charger_distance * DISTANCE_WEIGHT
+    
+    # If I have enough battery to deliver the package and go back to the charger, do it
+    if battery_cost <= robot.battery:
+        h_value += package_reward(package) * package_weight - battery_cost * DISTANCE_WEIGHT
+    elif robot.credit > 0:   # Go charge (Only if I have credit)
+        h_value += BATTERY_WEIGHT * robot.battery - charger_distance * DISTANCE_WEIGHT / 2
+
+    return h_value
 # -------------------------------------- Agents ------------------------------------ #
     
 class AgentGreedyImproved(AgentGreedy):
@@ -148,7 +184,7 @@ class AgentExpectimax(Agent):
 
     def run_step(self, env, agent_index, time_limit):
         # Run the Expectimax algorithm to get the best move
-        finish_time = time.time() + time_limit * EXPECTIMAX_TIME_LIMITATION
+        finish_time = time.time() + time_limit * TIME_LIMITATION
         depth = 1
         max_value, best_op = float("-inf"), env.get_legal_operators(agent_index)[0]
         
