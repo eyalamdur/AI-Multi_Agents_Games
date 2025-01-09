@@ -61,9 +61,15 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     target_distance = manhattan_distance(target, robot.position)
     charger_distance = manhattan_distance(charger.position, robot.position)
     
-    # Pre calculation for the heuristic
+    # Pre-calculation for the heuristic
     credit_gap = robot.credit - enemy_robot.credit
-    battery_cost = target_distance + manhattan_distance(charger.position, target) if robot.package else target_distance + manhattan_distance(package.position, target) + manhattan_distance(package.position, charger.position)
+    # if robot.package = false => manhattan_distance(package.position, target) = 0, (because target = package).
+    # so why use it?
+    # battery_cost:
+    # if robot has package - distance to the target and then to the charger
+    # otherwise - distance to the package (target) + distance to the package's target + distance from target to charger?
+    battery_cost = target_distance + manhattan_distance(charger.position, target) if robot.package\
+        else target_distance + manhattan_distance(package.position, target) + manhattan_distance(package.position, charger.position)
     package_weight = PACKAGE_WEIGHT if robot.package else PACKAGE_WEIGHT/10 
 
     # Initial heuristic value (Add the credit difference to the heuristic)
@@ -74,6 +80,7 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
         h_value += package_reward(package) * package_weight + robot.credit * CREDIT_WEIGHT - target_distance * DISTANCE_WEIGHT
     
     # If I'm in critical battery situation
+    # isn't it just 80X? ex. (BATTERY_WEIGHT-DISTANCE_WEIGHT)*robot.battery
     if robot.battery == charger_distance and robot.credit > 0:
         h_value += BATTERY_WEIGHT * robot.battery - charger_distance * DISTANCE_WEIGHT
     
