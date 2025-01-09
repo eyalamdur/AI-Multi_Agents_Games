@@ -90,7 +90,7 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
         h_value += package_reward(package) * package_weight - battery_cost * DISTANCE_WEIGHT
     # the BATTERY_WEIGHT is too high, causing it would never be cost-effective to charge (there for divided by 3)
     elif robot.credit > 0:   # Go charge (Only if I have credit)
-        h_value += BATTERY_WEIGHT / 3 * robot.battery - charger_distance * DISTANCE_WEIGHT / 2
+        h_value += BATTERY_WEIGHT * robot.battery - charger_distance * DISTANCE_WEIGHT / 2
 
     return h_value
 # -------------------------------------- Agents ------------------------------------ #
@@ -282,7 +282,6 @@ class AgentHardCoded(Agent):
 #  Helper function to get the closest package to the robot
 def closest_package(env: WarehouseEnv, robot_id: int):
     robot = env.get_robot(robot_id)
-    
     # If the robot is already carrying a package, return it
     if robot.package:
         return robot.package
@@ -290,7 +289,18 @@ def closest_package(env: WarehouseEnv, robot_id: int):
     # Calculate the distance to each package and return the closest one
     package0_dist = manhattan_distance(env.packages[0].position, robot.position)
     package1_dist = manhattan_distance(env.packages[1].position, robot.position)
-    return env.packages[1] if package0_dist > package1_dist else env.packages[0]
+
+    index = 1 if package0_dist > package1_dist else 0
+
+    # foe is not blocking:
+    foe = env.get_robot(1-robot_id)
+    if foe.battery == 0 and (manhattan_distance(foe.position, env.packages[index].position) == 0
+                             or manhattan_distance(foe.position, env.packages[index].destination) == 0):
+        index = 1-index
+
+    return env.packages[index]
+    #return env.packages[1] if package0_dist > package1_dist else env.packages[0]
+
 
 # Helper function to get the closest charger to the robot
 def closest_charger(env: WarehouseEnv, robot_id: int):
@@ -299,7 +309,16 @@ def closest_charger(env: WarehouseEnv, robot_id: int):
     # Calculate the distance to each charger and return the closest one
     charger0_dist = manhattan_distance(env.charge_stations[0].position, robot.position)
     charger1_dist = manhattan_distance(env.charge_stations[1].position, robot.position)
-    return env.charge_stations[1] if charger0_dist > charger1_dist else env.charge_stations[0]
+
+    index = 1 if charger0_dist > charger1_dist else 0
+    # foe is not blocking:
+    foe = env.get_robot(1 - robot_id)
+    if foe.battery == 0 and manhattan_distance(foe.position, env.charge_stations[index].position) == 0:
+        index = 1 - index
+
+    return env.charge_stations[index]
+
+    # return env.charge_stations[1] if charger0_dist > charger1_dist else env.charge_stations[0]
 
 # Helper function to calculate the reward for delivering a package
 def package_reward(package):
