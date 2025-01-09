@@ -67,10 +67,11 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     # so why use it?
     # battery_cost:
     # if robot has package - distance to the target and then to the charger
-    # otherwise - distance to the package (target) + distance to the package's target + distance from target to charger?
+    # otherwise - distance to the package (target) + distance to the package's destination
+    # + distance from destination to charger?
     battery_cost = target_distance + manhattan_distance(charger.position, target) if robot.package\
-        else target_distance + manhattan_distance(package.position, target) + manhattan_distance(package.position, charger.position)
-    package_weight = PACKAGE_WEIGHT if robot.package else PACKAGE_WEIGHT/10 
+        else target_distance + manhattan_distance(package.position, package.destination) + manhattan_distance(package.destination, charger.position)
+    package_weight = PACKAGE_WEIGHT if robot.package else PACKAGE_WEIGHT/10
 
     # Initial heuristic value (Add the credit difference to the heuristic)
     h_value = CREDIT_WEIGHT * credit_gap + robot.battery * BATTERY_WEIGHT*2
@@ -87,8 +88,9 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     # If I have enough battery to deliver the package and go back to the charger, do it
     if battery_cost <= robot.battery:
         h_value += package_reward(package) * package_weight - battery_cost * DISTANCE_WEIGHT
+    # the BATTERY_WEIGHT is too high, causing it would never be cost-effective to charge (there for divided by 3)
     elif robot.credit > 0:   # Go charge (Only if I have credit)
-        h_value += BATTERY_WEIGHT * robot.battery - charger_distance * DISTANCE_WEIGHT / 2
+        h_value += BATTERY_WEIGHT / 3 * robot.battery - charger_distance * DISTANCE_WEIGHT / 2
 
     return h_value
 # -------------------------------------- Agents ------------------------------------ #
