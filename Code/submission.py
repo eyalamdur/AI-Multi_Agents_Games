@@ -6,7 +6,7 @@ import time
 BATTERY_WEIGHT = 110
 CRITICAL_CHARGER_WEIGHT = 100
 CREDIT_WEIGHT = 100
-PACKAGE_WEIGHT = 90
+PACKAGE_WEIGHT = 50
 DISTANCE_WEIGHT = 30
 TIME_LIMITATION = 0.8
 
@@ -63,11 +63,11 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     
     # Pre calculation for the heuristic
     credit_gap = robot.credit - enemy_robot.credit
-    battery_cost = target_distance + manhattan_distance(charger.position, target) if robot.package else target_distance + manhattan_distance(package.position, target) + manhattan_distance(package.position, charger.position)
+    battery_cost = target_distance + manhattan_distance(charger.position, target) if robot.package else target_distance + manhattan_distance(package.position, package.destination) + manhattan_distance(package.destination, charger.position)
     package_weight = PACKAGE_WEIGHT if robot.package else PACKAGE_WEIGHT/10 
 
     # Initial heuristic value (Add the credit difference to the heuristic)
-    h_value = CREDIT_WEIGHT * credit_gap + robot.battery * BATTERY_WEIGHT*2
+    h_value = credit_gap * CREDIT_WEIGHT + robot.battery * BATTERY_WEIGHT*2
 
     # If i dont have credit to charge with, go to package
     if robot.credit <= 0:
@@ -76,12 +76,12 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     # If I'm in critical battery situation
     if robot.battery == charger_distance and robot.credit > 0:
         h_value += BATTERY_WEIGHT * robot.battery - charger_distance * DISTANCE_WEIGHT
-    
+
     # If I have enough battery to deliver the package and go back to the charger, do it
     if battery_cost <= robot.battery:
-        h_value += package_reward(package) * package_weight - battery_cost * DISTANCE_WEIGHT
+        h_value += package_reward(package) * package_weight + robot.credit * CREDIT_WEIGHT - battery_cost * DISTANCE_WEIGHT
     elif robot.credit > 0:   # Go charge (Only if I have credit)
-        h_value += BATTERY_WEIGHT * robot.battery - charger_distance * DISTANCE_WEIGHT / 2
+        h_value += robot.battery * BATTERY_WEIGHT/3 - charger_distance * DISTANCE_WEIGHT
 
     return h_value
 # -------------------------------------- Agents ------------------------------------ #
