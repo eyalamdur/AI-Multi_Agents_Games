@@ -26,10 +26,10 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     # Pre-calculation for the heuristic
     credit_gap = robot.credit - enemy_robot.credit
     battery_cost = target_distance + manhattan_distance(charger.position, target) if robot.package else target_distance + manhattan_distance(package.position, package.destination) + manhattan_distance(package.destination, charger.position)
-    package_weight = PACKAGE_WEIGHT if robot.package else PACKAGE_WEIGHT/10 
+    package_weight = PACKAGE_WEIGHT if robot.package else PACKAGE_WEIGHT/10
     
     # Initial heuristic value (Add the credit difference to the heuristic)
-    h_value = credit_gap * CREDIT_WEIGHT + robot.battery * BATTERY_WEIGHT*2
+    h_value = credit_gap * CREDIT_WEIGHT**2 + robot.battery * BATTERY_WEIGHT*2
 
     # If i dont have credit to charge with, go to package
     if robot.credit <= 0:
@@ -86,9 +86,8 @@ class AgentMinimax(Agent):
         depth = 1
         best_op = env.get_legal_operators(agent_id)[0]
         try:
-            while time.time() < finish_time:
-                _, op = self.minimax(env, agent_id, finish_time, depth, True)
-                best_op = op if op in env.get_legal_operators(agent_id) else best_op
+            while time.time() < finish_time:# and depth < 10:
+                _, best_op = self.minimax(env, agent_id, finish_time, depth, True)
                 depth += 1
         except TimeoutError:
             pass
@@ -131,7 +130,6 @@ class AgentAlphaBeta(Agent):
                 if chosen_value <= alpha:
                     return float("-inf"), op
             return chosen_value, chosen_op
-
 
 
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
@@ -179,7 +177,7 @@ class AgentExpectimax(Agent):
         if my_turn:
             chosen_value, chosen_op = self.max_value(children, ops, robot_id, time_finish, depth, my_turn, chosen_value)
         else:
-            chosen_value, chosen_op = self.expect_value(children, ops, robot_id, time_finish, depth, my_turn)
+            chosen_value, _ = self.expect_value(children, ops, robot_id, time_finish, depth, my_turn)
 
         return chosen_value, chosen_op
 

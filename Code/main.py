@@ -109,13 +109,13 @@ def run_agents():
         else:
             print('robot', balances.index(max(balances)), 'wins!')
     else:
-        num_of_games = 100   
+        num_of_games = 20   
         robot0_wins = 0
         robot1_wins = 0
         draws = 0
 
         for i in range(num_of_games):
-            # print("Game ", i)
+            print("Game ", i)
             env.generate(args.seed + i, 2*args.count_steps)
             if args.console_print:
                 print('initial board:')
