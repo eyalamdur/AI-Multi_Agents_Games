@@ -86,7 +86,7 @@ class AgentMinimax(Agent):
         depth = 1
         best_op = env.get_legal_operators(agent_id)[0]
         try:
-            while time.time() < finish_time:# and depth < 10:
+            while time.time() < finish_time:
                 _, best_op = self.minimax(env, agent_id, finish_time, depth, True)
                 depth += 1
         except TimeoutError:
@@ -258,8 +258,6 @@ def closest_package(env: WarehouseEnv, robot_id: int):
         index = 1-index
 
     return env.packages[index]
-    #return env.packages[1] if package0_dist > package1_dist else env.packages[0]
-
 
 # Helper function to get the closest charger to the robot
 def closest_charger(env: WarehouseEnv, robot_id: int):
@@ -276,8 +274,6 @@ def closest_charger(env: WarehouseEnv, robot_id: int):
         index = 1 - index
 
     return env.charge_stations[index]
-
-    # return env.charge_stations[1] if charger0_dist > charger1_dist else env.charge_stations[0]
 
 # Helper function to calculate the reward for delivering a package
 def package_reward(package):
