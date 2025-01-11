@@ -147,7 +147,7 @@ class AgentAlphaBeta(Agent):
         
 class AgentExpectimax(Agent):
     def __init__(self):
-        self.special_ops = ["move north", "pick_up"]
+        self.special_ops = ["move east", "pick_up"]
 
     def run_step(self, env, agent_index, time_limit):
         # Run the Expectimax algorithm to get the best move
