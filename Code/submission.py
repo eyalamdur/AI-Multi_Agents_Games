@@ -84,13 +84,11 @@ class AgentMinimax(Agent):
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
         finish_time = time.time() + TIME_LIMITATION*time_limit
         depth = 1
-        max_value, best_op = float("-inf"), env.get_legal_operators(agent_id)[0]
+        best_op = env.get_legal_operators(agent_id)[0]
         try:
             while time.time() < finish_time:
-                value, op = self.minimax(env, agent_id, finish_time, depth, True)
-                if max_value < value and op in env.get_legal_operators(agent_id):
-                    max_value = value
-                    best_op = op
+                _, op = self.minimax(env, agent_id, finish_time, depth, True)
+                best_op = op if op in env.get_legal_operators(agent_id) else best_op
                 depth += 1
         except TimeoutError:
             pass
@@ -139,13 +137,11 @@ class AgentAlphaBeta(Agent):
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
         finish_time = time.time() + TIME_LIMITATION * time_limit
         depth = 1
-        max_value, best_op = float("-inf"), env.get_legal_operators(agent_id)[0]
+        best_op = env.get_legal_operators(agent_id)[0]
         try:
             while time.time() < finish_time:
-                value, op = self.ABminimax(env, agent_id, finish_time, depth, True, float("-inf"), float("inf"))
-                if max_value < value and op in env.get_legal_operators(agent_id):
-                    max_value = value
-                    best_op = op
+                _, op = self.ABminimax(env, agent_id, finish_time, depth, True, float("-inf"), float("inf"))
+                best_op = op if op in env.get_legal_operators(agent_id) else best_op
                 depth += 1
         except TimeoutError:
             pass
@@ -159,13 +155,11 @@ class AgentExpectimax(Agent):
         # Run the Expectimax algorithm to get the best move
         finish_time = time.time() + time_limit * TIME_LIMITATION
         depth = 1
-        max_value, best_op = float("-inf"), env.get_legal_operators(agent_index)[0]
-        
+        best_op = env.get_legal_operators(agent_index)[0]
         try:
             while time.time() < finish_time:
-                value, op = self.expectimax(env, agent_index, finish_time, depth, my_turn=True)
-                if value > max_value and op in env.get_legal_operators(agent_index):
-                    max_value, best_op = value, op
+                _, op = self.expectimax(env, agent_index, finish_time, depth, my_turn=True)
+                best_op = op if op in env.get_legal_operators(agent_index) else best_op
                 depth += 1
         except TimeoutError:
             pass
