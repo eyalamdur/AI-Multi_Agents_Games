@@ -3,51 +3,13 @@ from WarehouseEnv import WarehouseEnv, manhattan_distance
 import random
 import time
 
-BATTERY_WEIGHT = 110
-CRITICAL_CHARGER_WEIGHT = 100
-CREDIT_WEIGHT = 100
-PACKAGE_WEIGHT = 50
-DISTANCE_WEIGHT = 30
 TIME_LIMITATION = 0.8
 
-def smart_heuristic_2(env: WarehouseEnv, robot_id: int):
-    # Get robot by id and validate it exists
-    robot = env.get_robot(robot_id)
-    enemy_robot = env.get_robot(1-robot_id)
-    
-    if not robot or not enemy_robot:
-        return 0
-    
-    # Calculate the target point for the robot and the closest package
-    package = closest_package(env, robot_id)
-    charger = closest_charger(env, robot_id)
-    target = package.destination if robot.package else package.position
-        
-    # distances calculation
-    target_distance = manhattan_distance(target, robot.position)
-    charger_distance = manhattan_distance(charger.position, robot.position)
-    
-    # Optional weights for the heuristic calculation And additional cost for the package
-    credit_weight, additional_cost, package_weight = (CREDIT_WEIGHT, 0, 10) if robot.package else (CREDIT_WEIGHT/10, manhattan_distance(package.position, package.destination), 0)
-    credits_gap = (robot.credit - enemy_robot.credit) * CREDIT_WEIGHT
-    
-    # If i dont have credit to charge with, go to package
-    if robot.credit < 0:
-        return package_weight*PACKAGE_WEIGHT + robot.credit * CREDIT_WEIGHT * CREDIT_WEIGHT - target_distance
-        
-    # If I'm in critical battery situation
-    if charger_distance == robot.battery and robot.credit > 0:
-        return robot.battery * BATTERY_WEIGHT + robot.credit * credit_weight - charger_distance * CRITICAL_CHARGER_WEIGHT
-    
-    # If I have a package and the battery is not enough to deliver it, return to the charger
-    if target_distance + manhattan_distance(charger.position, target) > robot.battery and robot.credit > 0:
-        return robot.battery * BATTERY_WEIGHT + robot.credit * CREDIT_WEIGHT - charger_distance
-    
-    # Otherwise, return the heuristic value
-    return package_reward(package) * package_weight - target_distance - additional_cost + (robot.credit * CREDIT_WEIGHT) + (robot.battery * BATTERY_WEIGHT)
-
-
 def smart_heuristic(env: WarehouseEnv, robot_id: int):  
+    BATTERY_WEIGHT = 110
+    CREDIT_WEIGHT = 100
+    PACKAGE_WEIGHT = 50
+    DISTANCE_WEIGHT = 30
     # Get robots 
     robot = env.get_robot(robot_id)
     enemy_robot = env.get_robot(1-robot_id)
@@ -74,7 +36,6 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
         h_value += package_reward(package) * package_weight + robot.credit * CREDIT_WEIGHT - target_distance * DISTANCE_WEIGHT
     
     # If I'm in critical battery situation
-    # isn't it just 80X? ex. (BATTERY_WEIGHT-DISTANCE_WEIGHT)*robot.battery
     if robot.battery == charger_distance and robot.credit > 0:
         h_value += BATTERY_WEIGHT * robot.battery - charger_distance * DISTANCE_WEIGHT
 
@@ -96,7 +57,9 @@ class AgentMinimax(Agent):
     
     def minimax(self, env: WarehouseEnv, robot_id, time_finish, depth, my_turn: bool):
         # Case time finish or final state or depth limit
-        if time.time() >= time_finish or depth == 0:
+        if time.time() >= time_finish:
+            raise TimeoutError
+        if depth == 0:
             return smart_heuristic(env, robot_id), env.get_legal_operators(robot_id)[0]
         
         curr_robot = robot_id if my_turn else 1 - robot_id
@@ -115,19 +78,22 @@ class AgentMinimax(Agent):
                 chosen_value = value
                 chosen_op = op
             if time.time() >= time_finish:
-                break
+                raise TimeoutError
         return chosen_value, chosen_op
 
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
         finish_time = time.time() + TIME_LIMITATION*time_limit
         depth = 1
         max_value, best_op = float("-inf"), env.get_legal_operators(agent_id)[0]
-        while time.time() < finish_time:
-            value, op = self.minimax(env, agent_id, finish_time, depth, True)
-            if max_value < value and op in env.get_legal_operators(agent_id):
-                max_value = value
-                best_op = op
-            depth += 1
+        try:
+            while time.time() < finish_time:
+                value, op = self.minimax(env, agent_id, finish_time, depth, True)
+                if max_value < value and op in env.get_legal_operators(agent_id):
+                    max_value = value
+                    best_op = op
+                depth += 1
+        except TimeoutError:
+            pass
         return best_op
 
 
@@ -135,7 +101,10 @@ class AgentAlphaBeta(Agent):
     
     def ABminimax(self, env: WarehouseEnv, robot_id, time_finish, depth, my_turn: bool, alpha: float, beta: float):
         # Case time finish or final state or depth limit
-        if time.time() >= time_finish or depth == 0:
+        if time.time() >= time_finish:
+            raise TimeoutError
+        
+        if depth == 0:
             return smart_heuristic(env, robot_id), env.get_legal_operators(robot_id)[0]
 
         curr_robot = robot_id if my_turn else 1 - robot_id
@@ -171,12 +140,15 @@ class AgentAlphaBeta(Agent):
         finish_time = time.time() + TIME_LIMITATION * time_limit
         depth = 1
         max_value, best_op = float("-inf"), env.get_legal_operators(agent_id)[0]
-        while time.time() < finish_time:
-            value, op = self.ABminimax(env, agent_id, finish_time, depth, True, float("-inf"), float("inf"))
-            if max_value < value and op in env.get_legal_operators(agent_id):
-                max_value = value
-                best_op = op
-            depth += 1
+        try:
+            while time.time() < finish_time:
+                value, op = self.ABminimax(env, agent_id, finish_time, depth, True, float("-inf"), float("inf"))
+                if max_value < value and op in env.get_legal_operators(agent_id):
+                    max_value = value
+                    best_op = op
+                depth += 1
+        except TimeoutError:
+            pass
         return best_op
         
 class AgentExpectimax(Agent):
@@ -189,12 +161,14 @@ class AgentExpectimax(Agent):
         depth = 1
         max_value, best_op = float("-inf"), env.get_legal_operators(agent_index)[0]
         
-        while time.time() < finish_time:
-            value, op = self.expectimax(env, agent_index, finish_time, depth, my_turn=True)
-            if value > max_value:
-                max_value, best_op = value, op
-            depth += 1
-
+        try:
+            while time.time() < finish_time:
+                value, op = self.expectimax(env, agent_index, finish_time, depth, my_turn=True)
+                if value > max_value and op in env.get_legal_operators(agent_index):
+                    max_value, best_op = value, op
+                depth += 1
+        except TimeoutError:
+            pass
         return best_op
 
     def expectimax(self, env, robot_id, time_finish, depth, my_turn):
@@ -218,9 +192,10 @@ class AgentExpectimax(Agent):
     # Check if the search should be finished time limit, depth limit or both robots are out of battery
     def finish_search(self, env, time_finish, depth):
         FIRST_ROBOT_ID, SECOND_ROBOT_ID = 0, 1
-        if time.time() >= time_finish or depth == 0 or \
-            (env.get_robot(FIRST_ROBOT_ID).battery == 0 and env.get_robot(SECOND_ROBOT_ID).battery == 0):
+        if depth == 0 or (env.get_robot(FIRST_ROBOT_ID).battery == 0 and env.get_robot(SECOND_ROBOT_ID).battery == 0):
             return True
+        if time.time() >= time_finish:
+            raise TimeoutError
         return False
     
     # Calculate and returns expect of the value of the children

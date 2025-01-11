@@ -115,7 +115,7 @@ def run_agents():
         draws = 0
 
         for i in range(num_of_games):
-            print("Game ", i)
+            # print("Game ", i)
             env.generate(args.seed + i, 2*args.count_steps)
             if args.console_print:
                 print('initial board:')
