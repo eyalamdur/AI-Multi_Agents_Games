@@ -109,7 +109,7 @@ def run_agents():
         else:
             print('robot', balances.index(max(balances)), 'wins!')
     else:
-        num_of_games = 100   
+        num_of_games = 100  
         robot0_wins = 0
         robot1_wins = 0
         draws = 0
